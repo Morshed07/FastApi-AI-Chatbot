@@ -4,10 +4,11 @@ Security utilities: JWT tokens, password hashing, current-user dependency.
 from datetime import UTC, datetime, timedelta
 from typing import Any
 import hashlib
+
+import bcrypt as _bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -15,25 +16,23 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 # ── Password hashing ──────────────────────────────────────────────────────────
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer = HTTPBearer(auto_error=False)
 
 
+def _prepare_password(plain: str) -> bytes:
+    """SHA-256 pre-hash → 64-char hex → encode to bytes, truncated to 72 for bcrypt."""
+    return hashlib.sha256(plain.encode()).hexdigest().encode("utf-8")[:72]
+
+
 def hash_password(plain: str) -> str:
-    # 1. Convert any length password into a fixed 64-char string
-    prepared_pw = hashlib.sha256(plain.encode()).hexdigest()
-    # 2. Hash that fixed string with Bcrypt
-    return _pwd_context.hash(prepared_pw)
+    return _bcrypt.hashpw(_prepare_password(plain), _bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    # 1. Apply the same SHA-256 logic to the login attempt
-    prepared_pw = hashlib.sha256(plain.encode()).hexdigest()
     try:
-        # 2. Verify against the stored Bcrypt hash
-        return _pwd_context.verify(prepared_pw, hashed)
-    except ValueError:
-        # This catches cases where the 'hashed' string isn't actually a hash
+        return _bcrypt.checkpw(_prepare_password(plain), hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        # Catches corrupt / non-bcrypt hashes and any residual bcrypt errors
         return False
 
 

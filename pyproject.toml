@@ -1,0 +1,32 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "S",   # flake8-bandit (security)
+    "ANN", # annotations
+]
+ignore = ["ANN101", "ANN102", "S101", "ANN401"]
+
+[tool.ruff.per-file-ignores]
+"tests/**" = ["S", "ANN"]
+"alembic/**" = ["ANN"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/db/migrations/*", "tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

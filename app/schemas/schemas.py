@@ -4,9 +4,9 @@ Pydantic v2 schemas — request bodies, response models, shared types.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 # ── Shared ────────────────────────────────────────────────────────────────────
@@ -26,17 +26,31 @@ class PaginatedResponse(BaseModel):
 # ── Auth ──────────────────────────────────────────────────────────────────────
 class RegisterRequest(BaseModel):
     email: EmailStr
-    username: str = Field(min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
-    password: str = Field(min_length=8, max_length=128)
+    username: str = Field(
+        ..., 
+        min_length=3, 
+        max_length=50, 
+        pattern=r"^[a-zA-Z0-9_-]+$",
+    )
+    password: str = Field(..., min_length=8, max_length=128)
+    re_password: str = Field(..., min_length=8, max_length=128)
 
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
+        """Individual field validation for complexity."""
         if not any(c.isupper() for c in v):
             raise ValueError("Password must contain at least one uppercase letter")
         if not any(c.isdigit() for c in v):
             raise ValueError("Password must contain at least one digit")
         return v
+
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> Self:
+        """Cross-field validation to ensure password confirmation matches."""
+        if self.password != self.re_password:
+            raise ValueError("Passwords do not match")
+        return self
 
 
 class LoginRequest(BaseModel):
